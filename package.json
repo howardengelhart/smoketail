@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "description": "Library and utility for tailing AWS CloudWatch Logs.",
   "main": "index.js",
+  "bin" : { "smoketail" : "./bin/smoketail.js" },
   "scripts": {
-    "test": "grunt unit_test"
+    "test": "grunt unit_tests"
   },
   "repository": {
     "type": "git",
