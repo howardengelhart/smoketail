@@ -1,0 +1,43 @@
+{
+  "name": "smoketail",
+  "version": "0.1.0",
+  "description": "Library and utility for tailing AWS CloudWatch Logs.",
+  "main": "index.js",
+  "bin": {
+    "smoketail": "./bin/smoketail.js"
+  },
+  "scripts": {
+    "test": "grunt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cinema6/smoketail.git"
+  },
+  "keywords": [
+    "aws",
+    "cloudwatch",
+    "logs",
+    "cloudwatchlogs",
+    "tail"
+  ],
+  "author": "Howard Engelhart",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cinema6/smoketail/issues"
+  },
+  "homepage": "https://github.com/cinema6/smoketail",
+  "dependencies": {
+    "q": "^1.4.1",
+    "aws-sdk": "^2.2.14",
+    "commander": "~2.9.0"
+  },
+  "devDependencies": {
+    "grunt-contrib-jshint": "^0.11.3",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt": "^0.4.5",
+    "jshint": "^2.8.0",
+    "jasmine": "^2.3.2",
+    "jasmine-reporters": "^2.0.7",
+    "load-grunt-config": "^0.19.0"
+  }
+}
