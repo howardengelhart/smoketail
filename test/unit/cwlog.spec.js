@@ -5,7 +5,6 @@ describe('cwlog', function() {
         for (var m in require.cache){ delete require.cache[m]; };
         aws     = require('aws-sdk');
         q       = require('q');
-        cwlog   = require('../../lib/cwlog');
 
         mockCloudWatchLogs = {
             filterLogEvents : jasmine.createSpy('filterLogEvents')

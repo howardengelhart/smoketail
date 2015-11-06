@@ -5,7 +5,7 @@
   "main": "index.js",
   "bin" : { "smoketail" : "./bin/smoketail.js" },
   "scripts": {
-    "test": "grunt unit_tests"
+    "test": "grunt test:unit"
   },
   "repository": {
     "type": "git",

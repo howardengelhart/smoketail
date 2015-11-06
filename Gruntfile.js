@@ -24,5 +24,5 @@ module.exports = function (grunt) {
         grunt.task.run('unit_tests');
     });
 
-    grunt.registerTask('unit_tests', ['jasmine:unit']);
+    grunt.task.renameTask('jasmine','test');
 };
