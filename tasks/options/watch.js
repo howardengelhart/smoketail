@@ -10,6 +10,6 @@ module.exports = {
             'lib/**/*.js',
             'test/**/*.js' 
         ],
-        tasks: ['jshint', 'unit_tests' ]
+        tasks: ['jshint', 'test:unit' ]
     }
 };

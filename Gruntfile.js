@@ -9,7 +9,7 @@ module.exports = function (grunt) {
     initProps.name = function() {
         return this.packageInfo.name;
     };
-    
+
     require('load-grunt-config')(grunt, {
         configPath: path.join(__dirname, 'tasks/options'),
         config: {
@@ -17,11 +17,10 @@ module.exports = function (grunt) {
         }
     });
     grunt.loadTasks('tasks');
-    
-    
+
     grunt.registerTask('default', function(){
         grunt.task.run('jshint');
-        grunt.task.run('unit_tests');
+        grunt.task.run('test');
     });
 
     grunt.task.renameTask('jasmine','test');

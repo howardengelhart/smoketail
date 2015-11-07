@@ -1,41 +1,65 @@
 describe('CWLogFilterStream', function() {
-    var q   = require('q'),
+    var q                      = require('q'),
+        util                   = require('util'),
+        Transform              = require('stream').Transform,
         CloudWatchLogs         = require('aws-sdk').CloudWatchLogs,
         CWLogFilterEventStream = require('../../lib/cwlog').CWLogFilterEventStream,
         CWLogEventToMessage    = require('../../lib/cwlog').CWLogEventToMessage,
         testLogGroupName       = 'smoketail/e2e/CWLogFilterStream',
-        testLogEvents, cwlogs;
+        cwlogs, tokens = {};
+
+    function MockPipe(spy){
+        this._spy=spy;
+        Transform.call(this);
+    }
+    util.inherits(MockPipe, Transform);
+
+    MockPipe.prototype._transform = function(chunk, encoding, done) {
+        this._spy(chunk.toString());
+        done();
+    };
+
+    function sendLogEvents(events,delay) {
+            var index = 0;
+            function putLogEvents(){
+                var params = events[index++];
+                if (!params) {
+                    return q();
+                }
+
+                params.logGroupName = params.logGroupName || testLogGroupName;
+
+                if (tokens[params.logStreamName]) {
+                    params.sequenceToken = tokens[params.logStreamName];
+                }
+
+                return q.ninvoke(cwlogs,'putLogEvents',params)
+                    .then(function(res){
+                        tokens[params.logStreamName] = res.nextSequenceToken;
+                    })
+                    .then(function(){
+                        if (delay) {
+                            return q.delay(delay);
+                        }
+                        return q();
+                    })
+                    .then(putLogEvents);
+            }
+
+            return putLogEvents();
+    }
+
+    function wait2Seconds() { return q.delay(2000); }
 
     beforeAll(function(done){
         cwlogs = new CloudWatchLogs({  apiVersion : '2014-03-28', region : 'us-east-1' });
-
-        testLogEvents = {
-            stream1: [
-                {  message:'2015-11-01T10:11:11.000Z s1,m1',timestamp:1446372671000 },
-                {  message:'2015-11-01T10:11:14.000Z s1,m2',timestamp:1446372674000 },
-                {  message:'2015-11-01T10:11:17.000Z s1,m3',timestamp:1446372677000 },
-                {  message: 'stream1, fin', timestamp: 1446372680000 }
-            ],
-            stream2: [
-                {  message:'2015-11-01T10:11:12.000Z s2,m1',timestamp:1446372672000 },
-                {  message:'2015-11-01T10:11:15.000Z s2,m2',timestamp:1446372675000 },
-                {  message:'2015-11-01T10:11:18.000Z s2,m3',timestamp:1446372678000 },
-                {  message: 'stream2, fin', timestamp: 1446372681000 }
-            ],
-            stream3: [
-                {  message:'2015-11-01T10:11:13.000Z s3,m1',timestamp:1446372673000 },
-                {  message:'2015-11-01T10:11:16.000Z s3,m2',timestamp:1446372676000 },
-                {  message:'2015-11-01T10:11:19.000Z s3,m3',timestamp:1446372679000 },
-                {  message: 'stream2, fin', timestamp: 1446372682000 }
-            ]
-        };
 
         function createLogGroup(){
             return q.ninvoke(cwlogs,'createLogGroup',{ logGroupName: testLogGroupName });
         }
 
         function createLogStreams() {
-            return q.all(Object.keys(testLogEvents).map(function(streamName){
+            return q.all(['stream1','stream2','stream3'].map(function(streamName){
                 return q.ninvoke(cwlogs,'createLogStream',{
                     logGroupName : testLogGroupName,
                     logStreamName : streamName
@@ -43,22 +67,8 @@ describe('CWLogFilterStream', function() {
             }));
         }
 
-        function createLogEvents(){
-            return q.all(Object.keys(testLogEvents).map(function(streamName){
-                var params = { logGroupName : testLogGroupName, logStreamName: streamName,
-                    logEvents : testLogEvents[streamName] };
-                return q.ninvoke(cwlogs,'putLogEvents',params)
-            }));
-        }
-
-        function wait2Seconds() {
-            return q.delay(2000);
-        }
-
         createLogGroup()
         .then(createLogStreams)
-        .then(createLogEvents)
-        .then(wait2Seconds)
         .then(done,done.fail);
     } );
 
@@ -68,9 +78,99 @@ describe('CWLogFilterStream', function() {
     });
 
     it('gets log events and finishes if not following',function(done){
+        var dtBase = (Math.round(Date.now() / 1000) * 1000) - 30000,
+            logEvents = [
+                {  
+                    logStreamName: 'stream1',
+                    logEvents: [
+                        {  message:'test1 - s1,m1',timestamp:dtBase },
+                        {  message:'test1 - s1,m2',timestamp:dtBase+3000 },
+                        {  message:'test1 - s1,m3',timestamp:dtBase+6000 },
+                        {  message:'test1 - s1,m4',timestamp:dtBase+9000 }
+                    ]
+                },
+                {
+                    logStreamName: 'stream2',
+                    logEvents: [
+                        {  message:'test1 - s2,m1',timestamp:dtBase+1000 },
+                        {  message:'test1 - s2,m2',timestamp:dtBase+4000 },
+                        {  message:'test1 - s2,m3',timestamp:dtBase+7000 },
+                        {  message:'test1 - s2,m4',timestamp:dtBase+10000 }
+                    ]
+                },
+                {
+                    logStreamName: 'stream3',
+                    logEvents: [
+                        {  message:'test1 - s3,m1',timestamp:dtBase+2000 },
+                        {  message:'test1 - s3,m2',timestamp:dtBase+5000 },
+                        {  message:'test1 - s3,m3',timestamp:dtBase+8000 },
+                        {  message:'test1 - s3,m4',timestamp:dtBase+11000 }
+                    ]
+                }
+            ];
+
+        sendLogEvents(logEvents)
+        .then(wait2Seconds)
+        .then(function(){
+            var deferred = q.defer(),
+                filter = new CWLogFilterEventStream({
+                    logGroupName : testLogGroupName,
+                    filterPattern: '"test1"',
+                    interLeaved: true
+                }),
+                closeSpy = jasmine.createSpy('close'),
+                dataSpy  = jasmine.createSpy('data');
+
+            filter.on('close',  closeSpy);
+            filter.on('data',   dataSpy);
+            filter.on('error',  deferred.reject);
+            filter.on('end', function(){
+                expect(closeSpy).toHaveBeenCalled();
+                expect(dataSpy.calls.count()).toEqual(12);
+                expect(dataSpy.calls.allArgs()).toEqual([
+                    [jasmine.objectContaining(logEvents[0].logEvents[0])],
+                    [jasmine.objectContaining(logEvents[1].logEvents[0])],
+                    [jasmine.objectContaining(logEvents[2].logEvents[0])],
+
+                    [jasmine.objectContaining(logEvents[0].logEvents[1])],
+                    [jasmine.objectContaining(logEvents[1].logEvents[1])],
+                    [jasmine.objectContaining(logEvents[2].logEvents[1])],
+
+                    [jasmine.objectContaining(logEvents[0].logEvents[2])],
+                    [jasmine.objectContaining(logEvents[1].logEvents[2])],
+                    [jasmine.objectContaining(logEvents[2].logEvents[2])],
+
+                    [jasmine.objectContaining(logEvents[0].logEvents[3])],
+                    [jasmine.objectContaining(logEvents[1].logEvents[3])],
+                    [jasmine.objectContaining(logEvents[2].logEvents[3])]
+                ]);
+                deferred.resolve();
+            });
+            return deferred.promise;
+        })
+        .then(done,done.fail);
+    },10000);
+
+    it('follows logevents if set to follow',function(done){
+        var dtBase = (Math.round(Date.now() / 1000) * 1000) - 30000,
+            logEvents = [
+                {  logStreamName: 'stream1', logEvents: [
+                    {  message:'test2 - s1,m1',timestamp:dtBase } ] },
+                {  logStreamName: 'stream2', logEvents: [
+                    {  message:'test2 - s2,m1',timestamp:dtBase+1000} ] },
+                {  logStreamName: 'stream3', logEvents: [
+                    {  message:'test2 - s3,m1',timestamp:dtBase+2000 } ] },
+                {  logStreamName: 'stream1', logEvents: [
+                    {  message:'test2 - s1,m2',timestamp:dtBase+3000 } ] },
+                {  logStreamName: 'stream2', logEvents: [
+                    {  message:'test2 - s2,m2',timestamp:dtBase+4000 } ] }
+            ];
+
         var filter = new CWLogFilterEventStream({
                 logGroupName : testLogGroupName,
-                interLeaved: true
+                filterPattern : '"test2"',
+                interLeaved: true,
+                follow: true
             }),
             closeSpy = jasmine.createSpy('close'),
             dataSpy  = jasmine.createSpy('data');
@@ -80,88 +180,78 @@ describe('CWLogFilterStream', function() {
         filter.on('error',  done.fail);
         filter.on('end', function(){
             expect(closeSpy).toHaveBeenCalled();
-            expect(dataSpy.calls.count()).toEqual(12);
+            expect(dataSpy.calls.count()).toEqual(5);
             expect(dataSpy.calls.allArgs()).toEqual([
-                [jasmine.objectContaining(testLogEvents.stream1[0])],
-                [jasmine.objectContaining(testLogEvents.stream2[0])],
-                [jasmine.objectContaining(testLogEvents.stream3[0])],
-                
-                [jasmine.objectContaining(testLogEvents.stream1[1])],
-                [jasmine.objectContaining(testLogEvents.stream2[1])],
-                [jasmine.objectContaining(testLogEvents.stream3[1])],
-                
-                [jasmine.objectContaining(testLogEvents.stream1[2])],
-                [jasmine.objectContaining(testLogEvents.stream2[2])],
-                [jasmine.objectContaining(testLogEvents.stream3[2])],
-                
-                [jasmine.objectContaining(testLogEvents.stream1[3])],
-                [jasmine.objectContaining(testLogEvents.stream2[3])],
-                [jasmine.objectContaining(testLogEvents.stream3[3])]
+                [jasmine.objectContaining(logEvents[0].logEvents[0])],
+                [jasmine.objectContaining(logEvents[1].logEvents[0])],
+                [jasmine.objectContaining(logEvents[2].logEvents[0])],
+                [jasmine.objectContaining(logEvents[3].logEvents[0])],
+                [jasmine.objectContaining(logEvents[4].logEvents[0])]
             ]);
             done();
         });
-    });
 
-    it('follows logevents if set to follow',function(done){
+        sendLogEvents(logEvents,500)
+        .then(wait2Seconds)
+        .then(function(){
+            filter.close();
+        })
+        .catch(done.fail);
+    },10000);
+
+    it('works with the CWLogEventToMessage Transformer',function(done){
+        // Note, CWLogEventToMesage will prepend messages with the formatted timestamp
+        // if the message does not already begin with a formatted timestamp.
+
+        function iso(utime){ return (new Date(utime)).toISOString(); }
+        var dtBase = (Math.round(Date.now() / 1000) * 1000) - 30000,
+            logEvents = [
+                {  logStreamName: 'stream1', logEvents: [
+                    {  message:iso(dtBase-500) + ' test3 - s1,m1',timestamp:dtBase } ] },
+                {  logStreamName: 'stream2', logEvents: [
+                    {  message:iso(dtBase+500) + ' test3 - s2,m1',timestamp:dtBase+1000} ] },
+                {  logStreamName: 'stream3', logEvents: [
+                    {  message:iso(dtBase+1500) + ' test3 - s3,m1',timestamp:dtBase+2000 } ] },
+                {  logStreamName: 'stream1', logEvents: [
+                    {  message:'test3 - s1,m2',timestamp:dtBase+3000 } ] },
+                {  logStreamName: 'stream2', logEvents: [
+                    {  message:'test3 - s2,m2',timestamp:dtBase+4000 } ] }
+            ];
+
         var filter = new CWLogFilterEventStream({
                 logGroupName : testLogGroupName,
-                filterPattern : '"follow-test"',
+                filterPattern : '"test3"',
                 interLeaved: true,
-                follow: true,
-                followInterval: 500
+                follow: true
             }),
+            toMessage = new CWLogEventToMessage( ),
             closeSpy = jasmine.createSpy('close'),
             dataSpy  = jasmine.createSpy('data'),
-            testEvents = [
-                { logStreamName:'stream1',message:'follow-test s1,m1',timestamp:144637269000 },
-                { logStreamName:'stream1',message:'follow-test s1,m2',timestamp:144637269300 },
-                { logStreamName:'stream1',message:'follow-test s1,m3',timestamp:144637269600 },
-                { logStreamName:'stream2',message:'follow-test s2,m1',timestamp:144637269100 },
-                { logStreamName:'stream2',message:'follow-test s2,m2',timestamp:144637269400 },
-                { logStreamName:'stream2',message:'follow-test s2,m3',timestamp:144637269700 },
-                { logStreamName:'stream3',message:'follow-test s3,m1',timestamp:144637269200 },
-                { logStreamName:'stream3',message:'follow-test s3,m2',timestamp:144637269500 },
-                { logStreamName:'stream3',message:'follow-test s3,m3',timestamp:144637269800 }
-            ];
-        
-        filter.on('close',  closeSpy);
-        filter.on('data',   dataSpy);
-        filter.on('error',  done.fail);
+            mockPipe = new MockPipe(dataSpy);
 
+        filter.on('close',  closeSpy);
+        filter.on('error',  done.fail);
         filter.on('end', function(){
             expect(closeSpy).toHaveBeenCalled();
-            expect(dataSpy.calls.count()).toEqual(8);
+            expect(dataSpy.calls.count()).toEqual(5);
+            expect(dataSpy.calls.allArgs()).toEqual([
+                [logEvents[0].logEvents[0].message],
+                [logEvents[1].logEvents[0].message],
+                [logEvents[2].logEvents[0].message],
+                [iso(dtBase+3000) + ' ' + logEvents[3].logEvents[0].message],
+                [iso(dtBase+4000) + ' ' + logEvents[4].logEvents[0].message]
+            ]);
             done();
         });
-       
-        function sendLogEvents() {
-            function wait() { return q.delay(250); }
-            function putLogEvents(){
-                var logevent = testEvents.shift();
-                if (!logevent) {
-                    return q();
-                }
-                var params = {
-                    logGroupName  : testLogGroupName,
-                    logStreamName : logevent.logStreamName,
-                    logEvents: [
-                        { message : logevent.message, timestamp : logevent.timestamp }
-                    ]
-                } 
-                return q.ninvoke(cwlogs,'putLogEvents',params).then(wait).then(putLogEvents)
-                    .catch(function(e){
-                        console.log(params);
-                        return q.reject(e);
-                    });
-            }
-            
-            return putLogEvents();
-        }
+        filter.pipe(toMessage).pipe(mockPipe);
 
-        setTimeout(function(){
+        sendLogEvents(logEvents,500)
+        .then(wait2Seconds)
+        .then(function(){
             filter.close();
-        }, 3500);
-
-        sendLogEvents().catch(done.fail);
+        })
+        .catch(done.fail);
     },10000);
+
+
 });
