@@ -2,7 +2,6 @@
 var program   = require('commander'),
     pkg       = require('../package.json'),
     cwl       = require('../lib/cwlog'),
-    toMessage = new cwl.CWLogEventToMessage( ),
     filter, filterOpts = { }, awsOpts;
 
 
@@ -115,4 +114,4 @@ filter.on('error', function(err){
     process.exit(1);
 });
 
-filter.pipe(toMessage).pipe(process.stdout);
+filter.pipe(cwl.logEventToMessage).pipe(process.stdout);

@@ -7,7 +7,7 @@
     "smoketail": "./bin/smoketail.js"
   },
   "scripts": {
-    "test": "grunt test:unit"
+    "test": "grunt"
   },
   "repository": {
     "type": "git",
