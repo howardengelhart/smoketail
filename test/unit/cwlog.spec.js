@@ -540,38 +540,49 @@ describe('cwlog', function() {
         });
 
         describe('._transform',function(){
-            it('will return an error if the chunk has no message',function(){
+            it('will push nothing if the chunk has no message',function(){
                 e2m._transform({},null,doneFunc);
                 expect(e2m.push).not.toHaveBeenCalled();
-                expect(doneFunc.calls.mostRecent().args[0])
-                    .toEqual(new Error('Received unsupported data type.'));
             });
 
-            it('will return an error if the chunk has no timestamp',function(){
+            it('will push nothing if the chunk has no timestamp',function(){
                 e2m._transform({},null,doneFunc);
                 expect(e2m.push).not.toHaveBeenCalled();
-                expect(doneFunc.calls.mostRecent().args[0])
-                    .toEqual(new Error('Received unsupported data type.'));
             });
 
             it('will prepend timestamp to the message if it does not have one',function(){
-                e2m._transform({message:'A\tmessage.',timestamp:67910400000}, null, doneFunc);
-                expect(e2m.push).toHaveBeenCalledWith('1972-02-26T00:00:00.000Z A\tmessage.');
+                e2m._transform({message:'A\tmessage.\n',timestamp:67910400000}, null, doneFunc);
+                expect(e2m.push).toHaveBeenCalledWith('1972-02-26T00:00:00.000Z A\tmessage.\n');
             });
 
             it('will not prepend timestamp to the message if it already has one',function(){
-                e2m._transform({message:'2015-05-01 A\tmessage.',timestamp:67910400000},
+                e2m._transform({message:'2015-05-01 A\tmessage.\n',timestamp:67910400000},
                     null, doneFunc);
-                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A\tmessage.');
+                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A\tmessage.\n');
             });
 
             it('will flatten tabs if crunchTabs option is set.',function(){
                 e2m = new cwlog.CWLogEventToMessage( { crunchTabs : true });
                 spyOn(e2m,'push');
+                e2m._transform({message:'2015-05-01 A\tmessage.\n',timestamp:67910400000},
+                    null, doneFunc);
+                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A message.\n');
+            });
+            
+            it('will not append endline to message if its not there.',function(){
                 e2m._transform({message:'2015-05-01 A\tmessage.',timestamp:67910400000},
                     null, doneFunc);
-                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A message.');
+                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A\tmessage.\n');
             });
+            
+            it('will append endline with crunchTabs option set.',function(){
+                e2m = new cwlog.CWLogEventToMessage( { crunchTabs : true });
+                spyOn(e2m,'push');
+                e2m._transform({message:'2015-05-01 A\tmessage.',timestamp:67910400000},
+                    null, doneFunc);
+                expect(e2m.push).toHaveBeenCalledWith('2015-05-01 A message.\n');
+            });
+
         });
     });
 });

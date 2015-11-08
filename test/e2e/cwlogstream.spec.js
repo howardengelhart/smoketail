@@ -49,7 +49,8 @@ describe('CWLogFilterStream', function() {
             return putLogEvents();
     }
 
-    function wait2Seconds() { return q.delay(2000); }
+    function wait3Seconds() { return q.delay(3000); }
+    function wait5Seconds() { return q.delay(5000); }
 
     beforeAll(function(done){
         cwlogs = new CloudWatchLogs({  apiVersion : '2014-03-28', region : 'us-east-1' });
@@ -110,7 +111,7 @@ describe('CWLogFilterStream', function() {
             ];
 
         sendLogEvents(logEvents)
-        .then(wait2Seconds)
+        .then(wait3Seconds)
         .then(function(){
             var deferred = q.defer(),
                 filter = new CWLogFilterEventStream({
@@ -192,7 +193,7 @@ describe('CWLogFilterStream', function() {
         });
 
         sendLogEvents(logEvents,500)
-        .then(wait2Seconds)
+        .then(wait3Seconds)
         .then(function(){
             filter.close();
         })
@@ -235,18 +236,18 @@ describe('CWLogFilterStream', function() {
             expect(closeSpy).toHaveBeenCalled();
             expect(dataSpy.calls.count()).toEqual(5);
             expect(dataSpy.calls.allArgs()).toEqual([
-                [logEvents[0].logEvents[0].message],
-                [logEvents[1].logEvents[0].message],
-                [logEvents[2].logEvents[0].message],
-                [iso(dtBase+3000) + ' ' + logEvents[3].logEvents[0].message],
-                [iso(dtBase+4000) + ' ' + logEvents[4].logEvents[0].message]
+                [logEvents[0].logEvents[0].message + '\n'],
+                [logEvents[1].logEvents[0].message + '\n'],
+                [logEvents[2].logEvents[0].message + '\n'],
+                [iso(dtBase+3000) + ' ' + logEvents[3].logEvents[0].message + '\n'],
+                [iso(dtBase+4000) + ' ' + logEvents[4].logEvents[0].message + '\n']
             ]);
             done();
         });
         filter.pipe(toMessage).pipe(mockPipe);
 
         sendLogEvents(logEvents,500)
-        .then(wait2Seconds)
+        .then(wait5Seconds)
         .then(function(){
             filter.close();
         })
