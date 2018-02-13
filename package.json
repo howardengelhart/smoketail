@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/cinema6/smoketail.git"
+    "url": "git://github.com/howardengelhart/smoketail.git"
   },
   "keywords": [
     "aws",
@@ -23,9 +23,9 @@
   "author": "Howard Engelhart",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/cinema6/smoketail/issues"
+    "url": "https://github.com/howardengelhart/smoketail/issues"
   },
-  "homepage": "https://github.com/cinema6/smoketail",
+  "homepage": "https://github.com/howardengelhart/smoketail",
   "dependencies": {
     "q": "^1.4.1",
     "aws-sdk": "^2.2.14",
