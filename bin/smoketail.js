@@ -21,6 +21,7 @@ function parseDateArg(v) {
 program
     .usage('[options] <logGroupName>')
     .version(pkg.version)
+    .option('-c, --credentials <name>', 'Profile name from ~/.aws/credentials ini.')
     .option('-i, --interleaved', 'Interleave the log results. (auto on if using -f).')
     .option('-f, --follow', 'When at the end of the logstream, ' +
         'poll for more messages.')
@@ -75,11 +76,10 @@ if (program.pattern) {
     filterOpts.filterPattern = program.pattern;
 }
 
-if (program.region) {
-    awsOpts = {
-        region : program.region
-    };
-}
+awsOpts = {
+    region : program.region,
+    profile: program.credentials
+};
 
 if (program.streams) {
     filterOpts.logStreamNames = program.streams;
