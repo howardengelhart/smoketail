@@ -19,6 +19,7 @@ The smoketail utility is a command line app that allows you to download or follo
 
     -h, --help                       output usage information
     -V, --version                    output the version number
+    -c, --credentials <name>         Profile name from ~/.aws/credentials ini.
     -i, --interleaved                Interleave the log results. (auto on if using -f).
     -f, --follow                     When at the end of the logstream, poll for more messages.
     -p, --pattern <pattern>          CloudWatch Logs filter pattern.
